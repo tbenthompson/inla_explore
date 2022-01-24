@@ -1,0 +1,50 @@
+```{r}
+library(INLA)
+library(boot)
+```
+
+```{r}
+n_patients_per_group <- 50
+n_groups <- 4
+mean_effect <- 0.5
+effect_var <- 1.0
+t_i <- rnorm(n_groups, mean_effect, sqrt(effect_var))
+p_i <- inv.logit(t_i)
+y_i <- rbinom(n_groups, n_patients_per_group, p_i)
+print(t_i)
+print(p_i)
+print(y_i)
+```
+
+```{r}
+df <- data.frame(y = y_i, gid = (1:n_groups))
+result <- inla(
+    y ~ f(gid, model = "iid"),
+    data = df, 
+    Ntrials = rep(n_patients_per_group, n_groups),
+    family = "binomial",
+    control.compute = list(
+        config = TRUE,
+        return.marginals.predictor = TRUE
+    )
+)
+summary(result)
+result.samp <- inla.posterior.sample(100, result)
+names(result.samp[[1]])
+print(result.samp[[1]])
+```
+
+```{r}
+for (i in 1:n_groups) {
+    theta_i <- result$marginals.linear.predictor[[i]][,1]
+    density <- result$marginals.linear.predictor[[i]][,2]
+    plot(theta_i, density)
+}
+```
+
+```{r}
+for (i in 1:n_groups) {
+    print(y_i[[i]])
+    print(inla.hpdmarginal(0.95, result$marginals.linear.predictor[[i]]))
+}
+```
